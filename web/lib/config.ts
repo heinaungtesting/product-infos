@@ -1,10 +1,16 @@
+import os from "node:os";
 import path from "node:path";
+
+const defaultHermesHome = process.platform === "win32"
+  ? path.join(os.homedir(), "AppData", "Local", "hermes")
+  : path.join(os.homedir(), ".hermes");
 
 /** Server-only configuration. Nothing here is sent to the browser. */
 export const config = {
   jobOsPy: process.env.JOB_OS_PY ?? path.resolve(process.cwd(), "..", "job_os.py"),
   python: process.env.PYTHON ?? "python3",
   jobOsDir: process.env.JOB_OS_DIR ?? path.resolve(process.cwd(), "..", "workspace"),
+  cronDir: process.env.HERMES_CRON_DIR ?? path.join(process.env.HERMES_HOME ?? defaultHermesHome, "cron"),
   allowedLogins: (process.env.ALLOWED_TAILSCALE_LOGINS ?? "")
     .split(",")
     .map((s) => s.trim().toLowerCase())

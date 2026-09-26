@@ -7,6 +7,7 @@ const TABS: { href: string; label: string; icon: IconName; match: (p: string) =>
   { href: "/", label: "Today", icon: "today", match: (p) => p === "/" },
   { href: "/pipeline", label: "Pipeline", icon: "pipeline", match: (p) => p.startsWith("/pipeline") || p.startsWith("/jobs") },
   { href: "/readiness", label: "Evidence", icon: "evidence", match: (p) => p.startsWith("/readiness") },
+  { href: "/activity", label: "Activity", icon: "history", match: (p) => p.startsWith("/activity") },
   { href: "/hermes", label: "Hermes", icon: "chat", match: (p) => p.startsWith("/hermes") },
 ];
 

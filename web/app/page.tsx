@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { Countdown } from "@/components/countdown";
+import { CronRunList } from "@/components/cron-activity";
 import { Icon, type IconName } from "@/components/icons";
 import { Empty, ErrorPanel, JobCard, PageHeader, SectionHead, StatTile, statusLabel } from "@/components/ui";
+import { listJobOsCronActivity } from "@/lib/cron-activity";
+import { config } from "@/lib/config";
 import { dueLabel, humanize, slot } from "@/lib/format";
 import { runJobOS } from "@/lib/jobos";
 import type { JobSummary, Pipeline, Prep, Readiness, Today } from "@/lib/types";
@@ -28,10 +31,11 @@ export default async function TodayPage() {
   }
   const next = data.next_interview;
   // Secondary views never take the page down: they just hide their section.
-  const [pipeline, readiness, prep] = await Promise.all([
+  const [pipeline, readiness, prep, cronActivity] = await Promise.all([
     runJobOS<Pipeline>(["api", "pipeline"]).catch(() => null),
     runJobOS<Readiness>(["api", "readiness"]).catch(() => null),
     next ? runJobOS<Prep>(["api", "prep", next.id]).catch(() => null) : Promise.resolve(null),
+    listJobOsCronActivity(config.cronDir, { limit: 3 }).catch(() => null),
   ]);
 
   const now = data.now;
@@ -188,6 +192,13 @@ export default async function TodayPage() {
                 </li>
               ))}
             </ol>
+          </section>
+        )}
+
+        {cronActivity && cronActivity.runs.length > 0 && (
+          <section aria-labelledby="automation-title">
+            <SectionHead id="automation-title" title="Automation" href="/activity" />
+            <CronRunList runs={cronActivity.runs} limit={3} />
           </section>
         )}
       </aside>
