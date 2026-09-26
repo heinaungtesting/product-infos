@@ -86,7 +86,9 @@ export function Chat({ conversation: initialKey, job, initialPrompt }: { convers
     void loadConversation(conversation);
   }, [conversation, loadConversation]);
 
-  useEffect(() => bottom.current?.scrollIntoView({ block: "end" }), [messages]);
+  useEffect(() => {
+    bottom.current?.scrollIntoView({ block: "end" });
+  }, [messages]);
 
   async function send() {
     const text = draft.trim();
