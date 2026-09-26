@@ -1,0 +1,55 @@
+{
+  "_note": "SYNTHETIC EXAMPLE. Copy to your JOB_OS_DIR and replace with your own reviewed claims. Never commit the real file.",
+  "name": "Example Candidate",
+  "graduation": { "year": 2027, "month": 3 },
+  "eligibility": {
+    "japanese_level": "N1",
+    "cs_major": false,
+    "science_major": false,
+    "experience_years": 0
+  },
+  "claims": [
+    {
+      "id": "shop-offline-sync",
+      "text": "Built offline-first sale logging for a retail shop: IndexedDB queue that syncs when the network returns.",
+      "skills": ["typescript", "react", "indexeddb", "offline-first"],
+      "reviewed": true,
+      "evidence": [
+        { "url": "https://github.com/example/shop-app/blob/0123456789abcdef0123456789abcdef01234567/src/sync/queue.ts#L12-L48", "note": "Queue + retry" }
+      ],
+      "probe_questions": [
+        "Where exactly does offline detection live in the code?",
+        "What happens if the same sale is synced twice?"
+      ]
+    },
+    {
+      "id": "shop-csrf",
+      "text": "Protected the shop admin API against CSRF with same-origin checks on every write.",
+      "skills": ["security", "nextjs", "typescript"],
+      "reviewed": true,
+      "evidence": [],
+      "probe_questions": [
+        "Why same-origin checks instead of CSRF tokens?",
+        "Show the line that rejects a cross-site POST."
+      ]
+    },
+    {
+      "id": "python-cli",
+      "text": "Wrote a Python CLI with SQLite that enforces workflow rules and is covered by unit tests.",
+      "skills": ["python", "sqlite", "testing"],
+      "reviewed": true,
+      "evidence": [
+        { "url": "https://github.com/example/cli/blob/89abcdef0123456789abcdef0123456789abcdef/cli.py#L1-L40", "note": "Status rules" }
+      ],
+      "probe_questions": ["How do you stop two processes writing at once?"]
+    },
+    {
+      "id": "draft-unreviewed",
+      "text": "Led a team of five on a Go microservice (not yet reviewed).",
+      "skills": ["go", "leadership"],
+      "reviewed": false,
+      "evidence": [],
+      "probe_questions": []
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+# Personal data never goes in this public repo
+workspace/
+data/
+private/
+drafts/
+*.sqlite3*
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+
+# Node / Next.js
+node_modules/
+web/.next/
+web/next-env.d.ts
+*.tsbuildinfo

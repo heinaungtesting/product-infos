@@ -1,0 +1,11 @@
+{
+  "_note": "SYNTHETIC EXAMPLE. History per company key; aliases fold name variants together.",
+  "example-tech": {
+    "aliases": ["exampletech", "エグザンプルテック"],
+    "history": [
+      { "year": 2026, "result": "rejected", "stage": "1次", "note": "Could not explain where offline detection lives" }
+    ],
+    "cooldown_until": "2026-12-31",
+    "lessons": ["Open the file before saying you built it."]
+  }
+}

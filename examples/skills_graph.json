@@ -1,0 +1,20 @@
+{
+  "_note": "SYNTHETIC EXAMPLE. Implies-edges count only when reviewed is true.",
+  "aliases": {
+    "ts": "typescript",
+    "js": "javascript",
+    "next.js": "nextjs",
+    "react.js": "react",
+    "postgres": "postgresql",
+    "sql": "sqlite",
+    "テスト": "testing",
+    "セキュリティ": "security"
+  },
+  "implies": [
+    { "from": "typescript", "to": "javascript", "reviewed": true },
+    { "from": "nextjs", "to": "react", "reviewed": true },
+    { "from": "react", "to": "frontend", "reviewed": true },
+    { "from": "sqlite", "to": "rdbms", "reviewed": true },
+    { "from": "python", "to": "backend", "reviewed": false }
+  ]
+}
