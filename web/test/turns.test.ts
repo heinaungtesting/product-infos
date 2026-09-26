@@ -82,6 +82,34 @@ test("unreachable Hermes gives the fix, not a stack trace", async () => {
   assert.match((events.at(-1) as { message: string }).message, /hermes gateway/);
 });
 
+test("stale previous response retries once with stored conversation history", async () => {
+  const requests: Record<string, unknown>[] = [];
+  const fetchFn = (async (_url: string, init: RequestInit) => {
+    const body = JSON.parse(String(init.body)) as Record<string, unknown>;
+    requests.push(body);
+    if (body.previous_response_id === "resp_1") {
+      return new Response(JSON.stringify({ error: { message: "Previous response not found: resp_1" } }), { status: 404 });
+    }
+    const sse = `data: ${JSON.stringify({ type: "response.output_text.delta", delta: "Recovered" })}\n\ndata: ${JSON.stringify({ type: "response.completed", response: { id: "resp_real" } })}\n\n`;
+    return new Response(sse, { status: 200 });
+  }) as unknown as typeof fetch;
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "jobos-stale-"));
+  const chat = new ChatStore(path.join(dir, "chat.json"));
+  const at = new Date().toISOString();
+  chat.append("job-os", [{ role: "user", text: "Earlier question", at }, { role: "assistant", text: "Earlier answer", at }], "resp_1");
+  const turns = new TurnStore({ fetch: fetchFn, chat, hermes: { ...hermes, continuation: "previous_response_id" } });
+  const { turn } = turns.start("job-os", "Follow-up", ID1);
+  const events = await readAll(turns.stream(turn));
+  assert.deepEqual(requests.map((r) => r.previous_response_id), ["resp_1", undefined]);
+  assert.deepEqual(requests[1].input, [
+    { role: "user", content: "Earlier question" },
+    { role: "assistant", content: "Earlier answer" },
+    { role: "user", content: "Follow-up" },
+  ]);
+  assert.equal(events.at(-1)?.type, "done");
+  assert.equal(chat.get("job-os").lastResponseId, "resp_real");
+});
+
 test("401 from Hermes names the API key", async () => {
   const { turns } = store((async () => new Response("no", { status: 401 })) as unknown as typeof fetch);
   const { turn } = turns.start("job-os", "hi", ID1);

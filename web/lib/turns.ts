@@ -171,21 +171,37 @@ export class TurnStore {
         const prev = chat.get(turn.conversation).lastResponseId;
         if (prev) body.previous_response_id = prev;
       }
+      const request = (payload: Record<string, unknown>) => this.deps.fetch(`${hermes.url}/v1/responses`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          accept: "text/event-stream",
+          ...(hermes.apiKey ? { authorization: `Bearer ${hermes.apiKey}` } : {}),
+        },
+        body: JSON.stringify(payload),
+        signal: turn.abort.signal,
+      });
       let res: Response;
       try {
-        res = await this.deps.fetch(`${hermes.url}/v1/responses`, {
-          method: "POST",
-          headers: {
-            "content-type": "application/json",
-            accept: "text/event-stream",
-            ...(hermes.apiKey ? { authorization: `Bearer ${hermes.apiKey}` } : {}),
-          },
-          body: JSON.stringify(body),
-          signal: turn.abort.signal,
-        });
+        res = await request(body);
+        if (res.status === 404 && body.previous_response_id) {
+          const errorBody = await res.text();
+          let message = "";
+          try { message = JSON.parse(errorBody).error?.message ?? ""; } catch { /* preserve original error */ }
+          if (!/^Previous response not found: /.test(message)) {
+            throw new Error(upstreamError(res.status, errorBody));
+          }
+          // A missing server-side response was never executed. Rebuild context
+          // from our own transcript and send this turn exactly once more.
+          const history = chat.get(turn.conversation).messages
+            .filter((m) => !m.error)
+            .map((m) => ({ role: m.role, content: m.text }));
+          res = await request({ ...body, input: [...history, { role: "user", content: turn.text }], previous_response_id: undefined });
+        }
       } catch (e) {
         if (turn.abort.signal.aborted) throw e;
-        throw new Error("Hermes is unreachable — is `hermes gateway` running?");
+        if (e instanceof TypeError) throw new Error("Hermes is unreachable — is `hermes gateway` running?");
+        throw e;
       }
       if (!res.ok || !res.body) {
         throw new Error(upstreamError(res.status, await res.text().catch(() => "")));
