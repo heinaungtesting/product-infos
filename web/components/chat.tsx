@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { readActiveConversation, saveActiveConversation } from "@/lib/active-conversation";
 
 type Tool = { name: string; status: string };
 type Msg = { role: "user" | "assistant"; text: string; tools?: Tool[]; error?: string };
@@ -14,6 +15,7 @@ const CHIPS = ["What's due this week?", "Prep me for my next interview.", "Which
 
 export function Chat({ conversation: initialKey, job, initialPrompt }: { conversation: string; job?: string; initialPrompt?: string }) {
   const [conversation, setConversation] = useState(initialKey);
+  const [restored, setRestored] = useState(false);
   const [health, setHealth] = useState<{ ok: boolean; detail: string; stopCancels: boolean } | null>(null);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [draft, setDraft] = useState(initialPrompt ?? "");
@@ -82,9 +84,16 @@ export function Chat({ conversation: initialKey, job, initialPrompt }: { convers
   }, [read]);
 
   useEffect(() => {
+    try { setConversation(readActiveConversation(initialKey, window.sessionStorage)); }
+    catch { /* storage can be disabled; keep the current page usable */ }
+    setRestored(true);
+  }, [initialKey]);
+
+  useEffect(() => {
+    if (!restored) return;
     fetch("/api/hermes/health", { cache: "no-store" }).then((r) => r.json()).then(setHealth).catch(() => setHealth({ ok: false, detail: "Dashboard server unreachable.", stopCancels: false }));
     void loadConversation(conversation);
-  }, [conversation, loadConversation]);
+  }, [conversation, loadConversation, restored]);
 
   useEffect(() => {
     bottom.current?.scrollIntoView({ block: "end" });
@@ -148,7 +157,10 @@ export function Chat({ conversation: initialKey, job, initialPrompt }: { convers
   }
 
   function newConversation() {
-    setConversation(`job-os${job ? `:${job}` : ""}:${Date.now()}`);
+    const thread = `job-os${job ? `:${job}` : ""}:${Date.now()}`;
+    try { saveActiveConversation(initialKey, thread, window.sessionStorage); }
+    catch { /* still switch threads for this page */ }
+    setConversation(thread);
   }
 
   return (
