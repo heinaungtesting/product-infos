@@ -14,7 +14,7 @@ This repo is **public**. It contains code and synthetic examples only. Your real
 | `skill/SKILL.md` | Hermes skill: hard rules (never submit, never send, data only through `job_os.py`) and workflows. |
 | `examples/` | Synthetic `profile.json`, `skills_graph.json`, `companies.json`. |
 | `tests/` | Python unit tests (16). |
-| `web/` | Next.js 16 dashboard: Today, Pipeline, Job, Prep, Readiness, Hermes chat. |
+| `web/` | Next.js 16 dashboard (phone PWA + desktop layout): Today, Pipeline board, Job, Prep, Evidence (readiness), Hermes chat. |
 | `web/proxy.ts` | Tailscale identity allowlist on every request. |
 | `web/server.mjs` | Production server; binds only to loopback or a Unix socket. |
 | `web/lib/turns.ts` | Server-owned Hermes turns: dedupe, one-at-a-time, resume after a dropped connection. |

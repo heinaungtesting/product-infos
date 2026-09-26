@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Icon } from "./icons";
 import { readActiveConversation, saveActiveConversation } from "@/lib/active-conversation";
 
 type Tool = { name: string; status: string };
@@ -164,20 +165,27 @@ export function Chat({ conversation: initialKey, job, initialPrompt }: { convers
   }
 
   return (
-    <>
-      <p className="sub">
+    <div className="chat-wrap">
+      <p className="chat-status">
         <span className={`dot${health?.ok ? " on" : ""}`} aria-hidden />
-        {health ? (health.ok ? "Hermes online" : `Hermes offline — ${health.detail}`) : "Checking Hermes…"}
-        {" · "}<code>{conversation}</code>
+        <span>{health ? (health.ok ? "Hermes online" : `Hermes offline — ${health.detail}`) : "Checking Hermes…"}</span>
+        <code>{conversation}</code>
+        <button className="chip-btn" style={{ marginLeft: "auto" }} onClick={newConversation}><Icon name="plus" size={16} />New</button>
       </p>
       <div className="chips">
         {CHIPS.map((c) => (
-          <button key={c} className="btn secondary" onClick={() => { setDraft(c); setMsgId(crypto.randomUUID()); }}>{c}</button>
+          <button key={c} className="chip-btn" onClick={() => { setDraft(c); setMsgId(crypto.randomUUID()); }}><Icon name="sparkle" size={16} />{c}</button>
         ))}
-        <button className="btn secondary" onClick={newConversation}>New conversation</button>
       </div>
-      <p className="sub">Chat is for questions. Record statuses and deadlines with the forms on each job.</p>
+      <p className="chat-hint">Chat is for questions. Record statuses and deadlines with the forms on each job.</p>
       <div className="chat" aria-live="polite">
+        {messages.length === 0 && (
+          <div className="chat-empty">
+            <span className="stat-icon tone-blue"><Icon name="chat" size={30} /></span>
+            <strong style={{ color: "var(--shell-ink)", fontSize: 18 }}>Ask Hermes anything about your search</strong>
+            <span>It reads your jobs, claims and deadlines through job_os.py — and never submits or sends anything.</span>
+          </div>
+        )}
         {messages.map((m, i) => (
           <div key={i} className={`msg ${m.role}`}>
             {m.tools?.map((t, j) => (
@@ -185,35 +193,36 @@ export function Chat({ conversation: initialKey, job, initialPrompt }: { convers
                 {t.status === "denied" ? `⛔ ${t.name}: denied by Hermes' default approval policy — run this on the PC.` : `⚙ ${t.name} (${t.status})`}
               </div>
             ))}
-            {m.text || (m.role === "assistant" && !m.error ? "…" : "")}
+            {m.text || (m.role === "assistant" && !m.error ? <span className="typing" aria-label="Hermes is typing"><i /><i /><i /></span> : "")}
             {m.error && <div className="form-error">{m.error}</div>}
           </div>
         ))}
         <div ref={bottom} />
       </div>
       {turn?.state === "dropped" && (
-        <div className="panel error" role="alert">
+        <div className="card dropped" role="alert">
           <strong>Connection dropped. Hermes may still be answering.</strong>
-          <p><button className="btn" onClick={resume}>Reload conversation</button></p>
+          <button className="btn primary" onClick={resume}>Reload conversation</button>
         </div>
       )}
-      {notice && <p className="form-error" role="alert">{notice}</p>}
+      {notice && <p className="notice" role="alert">{notice}</p>}
       <div className="composer">
         <textarea
           aria-label="Message Hermes"
+          placeholder="Message Hermes…"
           value={draft}
-          rows={2}
+          rows={1}
           onChange={(e) => {
             if (!draft && e.target.value) setMsgId(crypto.randomUUID());
             setDraft(e.target.value);
           }}
         />
         {turn?.state === "streaming" ? (
-          <button className="btn secondary" onClick={stop}>{health?.stopCancels ? "Stop" : "Stop showing"}</button>
+          <button className="btn secondary" onClick={stop}><Icon name="stop" size={16} />{health?.stopCancels ? "Stop" : "Stop showing"}</button>
         ) : (
-          <button className="btn" onClick={send} disabled={!draft.trim() || !!turn}>Send</button>
+          <button className="btn primary" onClick={send} disabled={!draft.trim() || !!turn} aria-label="Send"><Icon name="send" size={18} /></button>
         )}
       </div>
-    </>
+    </div>
   );
 }

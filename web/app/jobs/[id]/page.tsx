@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Icon } from "@/components/icons";
 import { RecordForm, ScheduleForm } from "@/components/job-forms";
-import { Badge, ErrorPanel, Verdict } from "@/components/ui";
-import { jst } from "@/lib/format";
+import { Badge, ErrorPanel, Logo, PageHeader, Verdict } from "@/components/ui";
+import { dueLabel, jst } from "@/lib/format";
 import { JOB_ID_RE, JobOSError, runJobOS } from "@/lib/jobos";
 import type { JobDetail } from "@/lib/types";
 
@@ -24,83 +25,127 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
     d = await runJobOS<JobDetail>(["api", "job", id]);
   } catch (e) {
     if (e instanceof JobOSError && e.kind === "rule" && e.message.startsWith("No job")) notFound();
-    return (<><h1>Job</h1><ErrorPanel error={e} /></>);
+    return (<><PageHeader title="Job" date={false} back={{ href: "/pipeline", label: "Pipeline" }} /><ErrorPanel error={e} /></>);
   }
   const j = d.job;
   const cov = { direct: 0, inferred: 0, none: 0 };
   d.match.forEach((m) => cov[m.match]++);
   const total = d.match.length || 1;
+  const pct = (n: number) => `${(n / total) * 100}%`;
   const action = primaryAction(d);
   return (
     <>
-      <p className="sub"><Link href="/pipeline">← Pipeline</Link></p>
-      <h1>{j.company}</h1>
-      <p className="muted">{j.title}</p>
-      <p><Badge status={j.status} stage={j.stage} /> <Verdict verdict={j.verdict} /></p>
-      {j.next_action && (
-        <p className={j.overdue ? "red" : ""}>Next: {j.next_action} · <span className="num">{jst(j.due_at)}</span></p>
-      )}
-      <p><Link className="btn" href={action.href}>{action.label}</Link></p>
+      <PageHeader title="Job" date={false} back={{ href: "/pipeline", label: "Pipeline" }} />
 
-      {d.prescreen.reasons && d.prescreen.reasons.length > 0 && (
-        <>
-          <h2>Prescreen</h2>
-          <ul className="rows">
-            {d.prescreen.reasons.map((r, i) => (
-              <li key={i} className="row"><Verdict verdict={r.level} /> <span className="row-main">{r.detail}</span></li>
-            ))}
-          </ul>
-          {j.override_reason && <p className="sub">Override: {j.override_reason}</p>}
-        </>
-      )}
+      <section className="card job-hero">
+        <div className="job-hero-head">
+          <Logo name={j.company} size={64} />
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <h1>{j.company}</h1>
+            <p>{j.title}</p>
+          </div>
+        </div>
+        <div className="tags">
+          <Badge status={j.status} stage={j.stage} />
+          <Verdict verdict={j.verdict} />
+          {j.override && <span className="tag tag-amber">Override</span>}
+          {j.url && <a className="tag tag-blue" href={j.url} target="_blank" rel="noreferrer noopener"><Icon name="link" size={14} />&nbsp;Posting</a>}
+        </div>
+        {j.next_action && (
+          <div className={`next-step${j.overdue ? " overdue" : ""}`}>
+            <Icon name={j.next_kind === "interview" ? "video" : "flag"} size={22} />
+            <div>
+              <strong>{j.next_action}</strong>
+              <span className="sub num">{jst(j.due_at)} · {dueLabel(j.due_at, Date.now(), j.overdue)}</span>
+            </div>
+          </div>
+        )}
+        <Link className="btn primary block" href={action.href}>{action.label}<Icon name="arrow" size={18} /></Link>
+      </section>
 
-      <h2>Requirement coverage</h2>
-      <div className="cov" aria-hidden>
-        <span className="cov-direct" style={{ width: `${(cov.direct / total) * 100}%` }} />
-        <span className="cov-inferred" style={{ width: `${(cov.inferred / total) * 100}%` }} />
-        <span className="cov-none" style={{ width: `${(cov.none / total) * 100}%` }} />
+      <div className="detail-grid">
+        <div style={{ display: "grid", gap: 16, alignContent: "start" }}>
+          <section className="card panel">
+            <h2>Requirement coverage</h2>
+            <div className="cov" aria-hidden>
+              <span className="cov-direct" style={{ width: pct(cov.direct) }} />
+              <span className="cov-inferred" style={{ width: pct(cov.inferred) }} />
+              <span className="cov-none" style={{ width: pct(cov.none) }} />
+            </div>
+            <div className="legend">
+              <span><i style={{ background: "var(--green)" }} />{cov.direct} direct</span>
+              <span><i style={{ background: "#38bdf8" }} />{cov.inferred} inferred</span>
+              <span><i style={{ background: "#f87171" }} />{cov.none} missing</span>
+            </div>
+            <ul className="rows" style={{ margin: "0 -20px -8px" }}>
+              {d.match.map((m) => (
+                <li key={m.requirement} className="row" style={{ padding: "12px 20px" }}>
+                  <span className="row-main">
+                    <strong>{m.requirement}</strong>{m.preferred && <span className="sub" style={{ display: "inline" }}> · preferred</span>}
+                    {m.claims[0] && <span className="sub">{m.claims[0].claim}{m.claims[0].kind === "inferred" && ` via ${m.claims[0].path.join(" → ")}`}</span>}
+                  </span>
+                  <span className={`match-tag match-${m.match}`}>{m.match === "none" ? "NO MATCH" : m.match.toUpperCase()}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          {d.prescreen.reasons && d.prescreen.reasons.length > 0 && (
+            <section className="card panel">
+              <h2>Prescreen <Verdict verdict={d.prescreen.verdict ?? ""} /></h2>
+              <ul className="rows" style={{ margin: "0 -20px -8px" }}>
+                {d.prescreen.reasons.map((r, i) => (
+                  <li key={i} className="row" style={{ padding: "12px 20px" }}><Verdict verdict={r.level} /><span className="row-main">{r.detail}</span></li>
+                ))}
+              </ul>
+              {j.override_reason && <p className="sub" style={{ marginTop: 12 }}>Override: {j.override_reason}</p>}
+            </section>
+          )}
+
+          {d.versions.length > 0 && (
+            <section className="card panel">
+              <h2>Résumé versions</h2>
+              <ul className="rows" style={{ margin: "0 -20px -8px" }}>
+                {d.versions.map((v) => (
+                  <li key={v.version} className="row" style={{ padding: "12px 20px" }}>
+                    <span className="mini-icon"><Icon name="file" size={18} /></span>
+                    <span className="row-main">
+                      <strong>v{v.version}</strong> · {v.claims} claims
+                      {v.unmatched.length > 0 && <span className="red"> · {v.unmatched.length} unmatched</span>}
+                      <span className="sub">{jst(v.created_at)}</span>
+                    </span>
+                    {v.sent && <span className="match-tag match-direct">SENT</span>}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          <section className="card panel">
+            <h2><Icon name="history" size={20} />History</h2>
+            <ol className="timeline">
+              {d.events.map((e, i) => (
+                <li key={i}>
+                  <span className="when num">{jst(e.at)}</span>
+                  <Badge status={e.status} />
+                  {e.note && <p>{e.note}</p>}
+                </li>
+              ))}
+            </ol>
+          </section>
+        </div>
+
+        <div className="side">
+          <section className="card panel">
+            <h2><Icon name="flag" size={20} />Set next step</h2>
+            <ScheduleForm jobId={j.id} action={j.next_action} due={j.due_at} kind={j.next_kind} />
+          </section>
+          <section className="card panel">
+            <h2><Icon name="shield" size={20} />Record result</h2>
+            <RecordForm jobId={j.id} allowed={d.allowed_next} />
+          </section>
+        </div>
       </div>
-      <ul className="rows">
-        {d.match.map((m) => (
-          <li key={m.requirement} className="row">
-            <span className="row-main">
-              {m.requirement}{m.preferred && <span className="sub"> (preferred)</span>}
-              {m.claims[0] && <span className="sub" style={{ display: "block" }}>{m.claims[0].claim}{m.claims[0].kind === "inferred" && ` via ${m.claims[0].path.join(" → ")}`}</span>}
-            </span>
-            <span className={`tag tag-${m.match}`}>{m.match === "none" ? "NO MATCH" : m.match}</span>
-          </li>
-        ))}
-      </ul>
-
-      {d.versions.length > 0 && (
-        <>
-          <h2>Résumé versions</h2>
-          <ul className="rows">
-            {d.versions.map((v) => (
-              <li key={v.version} className="row">
-                <span className="row-main">v{v.version} · {v.claims} claims{v.unmatched.length > 0 && <span className="red"> · {v.unmatched.length} unmatched</span>}</span>
-                {v.sent && <span className="tag tag-direct">SENT</span>}
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
-
-      <h2>Set next step</h2>
-      <ScheduleForm jobId={j.id} action={j.next_action} due={j.due_at} />
-
-      <h2>Record result</h2>
-      <RecordForm jobId={j.id} allowed={d.allowed_next} />
-
-      <h2>History</h2>
-      <ul className="rows">
-        {d.events.map((e, i) => (
-          <li key={i} className="row">
-            <Badge status={e.status} />
-            <span className="row-main"><span className="sub">{jst(e.at)}</span><span style={{ display: "block" }}>{e.note}</span></span>
-          </li>
-        ))}
-      </ul>
     </>
   );
 }
