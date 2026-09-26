@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { EvidenceForm } from "@/components/feature-forms";
 import { Icon } from "@/components/icons";
 import { Empty, ErrorPanel, PageHeader } from "@/components/ui";
 import { humanize } from "@/lib/format";
@@ -16,8 +17,12 @@ export default async function ReadinessPage() {
   }
   const pct = r.evidence.reviewed ? Math.round((r.evidence.linked / r.evidence.reviewed) * 100) : 0;
   const missing = r.evidence.reviewed - r.evidence.linked;
+  const verified = r.evidence.verified ?? r.evidence.linked;
+  const pending = r.evidence.linked - verified;
   const maxGap = Math.max(1, ...r.gaps.map((g) => g.jobs));
-  const order = (c: Readiness["claims"][number]) => (c.reviewed && !c.has_evidence ? 0 : !c.reviewed ? 1 : 2);
+  const stateOf = (c: Readiness["claims"][number]) =>
+    !c.reviewed ? "unreviewed" : !c.has_evidence ? "missing" : c.verified === false ? "pending" : "linked";
+  const order = (c: Readiness["claims"][number]) => ({ missing: 0, pending: 1, unreviewed: 2, linked: 3 })[stateOf(c)];
   const claims = [...r.claims].sort((a, b) => order(a) - order(b));
   return (
     <>
@@ -31,28 +36,34 @@ export default async function ReadinessPage() {
             <div>
               <h2>Code evidence</h2>
               <p className="sub num">{r.evidence.linked} of {r.evidence.reviewed} reviewed claims link to code.</p>
-              {missing > 0 ? <p className="red" style={{ fontWeight: 700 }}>{missing} gap{missing > 1 ? "s" : ""} to close before interviews.</p> : <p style={{ color: "var(--green)", fontWeight: 700 }}>Every claim is backed.</p>}
+              {missing > 0 ? <p className="red" style={{ fontWeight: 700 }}>{missing} gap{missing > 1 ? "s" : ""} to close before interviews.</p>
+                : pending > 0 ? <p style={{ color: "var(--amber-ink)", fontWeight: 700 }}>{pending} link{pending > 1 ? "s" : ""} waiting for review on the PC.</p>
+                : <p style={{ color: "var(--green)", fontWeight: 700 }}>Every claim is backed by verified code.</p>}
+              {missing > 0 && pending > 0 && <p className="sub">{pending} more link{pending > 1 ? "s" : ""} added, waiting for review.</p>}
             </div>
           </section>
 
           <div className="section-head"><h2>Claims</h2></div>
           <div className="card-list">
             {claims.map((c) => {
-              const state = !c.reviewed ? "unreviewed" : c.has_evidence ? "linked" : "missing";
+              const state = stateOf(c);
               return (
                 <section key={c.id} className={`card claim-card${state === "missing" ? " probe missing" : ""}`} style={{ padding: "16px 18px" }}>
                   <div className="claim-top">
                     <strong>{humanize(c.id)}</strong>
-                    <span className={`match-tag ${state === "linked" ? "match-direct" : state === "missing" ? "match-none" : ""}`} style={state === "unreviewed" ? { background: "#eef1f6", color: "#5f6b80" } : undefined}>
-                      {state === "linked" ? "LINKED" : state === "missing" ? "NO CODE" : "UNREVIEWED"}
+                    <span className={`match-tag ${state === "linked" ? "match-direct" : state === "missing" ? "match-none" : state === "pending" ? "match-inferred" : ""}`} style={state === "unreviewed" ? { background: "#eef1f6", color: "#5f6b80" } : undefined}>
+                      {state === "linked" ? "VERIFIED" : state === "missing" ? "NO CODE" : state === "pending" ? "NEEDS REVIEW" : "UNREVIEWED"}
                     </span>
                   </div>
                   <p>{c.text}</p>
                   <div className="tags">{c.skills.map((s) => <span key={s} className="tag">{s}</span>)}</div>
                   {state === "missing" && (
-                    <Link className="btn outline-amber" href={`/hermes?prompt=${encodeURIComponent(`Find code evidence for claim ${c.id}.`)}`}>
-                      <Icon name="sparkle" size={18} />Find evidence with Hermes
-                    </Link>
+                    <div className="claim-actions">
+                      <EvidenceForm claimId={c.id} />
+                      <Link className="btn secondary" href={`/hermes?prompt=${encodeURIComponent(`Find code evidence for claim ${c.id}.`)}`}>
+                        <Icon name="sparkle" size={18} />Find with Hermes
+                      </Link>
+                    </div>
                   )}
                   {c.evidence.length > 0 && (
                     <div className="evidence-links">

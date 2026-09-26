@@ -18,13 +18,18 @@ export class JobOSError extends Error {
   }
 }
 
-/** Run job_os.py with a fixed argument array. Never goes through a shell. */
-export function runJobOS<T>(args: string[]): Promise<T> {
+/** Run Job OS (through scripts/jobos_bridge.py) with a fixed argument array. Never goes through a shell.
+ *  `input` is written to stdin (used for large payloads; Windows caps argv at ~32K chars). */
+export function runJobOS<T>(args: string[], input?: string): Promise<T> {
   return new Promise((resolve, reject) => {
-    execFile(
+    const child = execFile(
       config.python,
-      [config.jobOsPy, "--json", ...args],
-      { timeout: 60_000, maxBuffer: 5 * 1024 * 1024, env: { ...process.env, JOB_OS_DIR: config.jobOsDir } },
+      [config.bridgePy, "--json", ...args],
+      {
+        timeout: 60_000,
+        maxBuffer: 5 * 1024 * 1024,
+        env: { ...process.env, JOB_OS_DIR: config.jobOsDir, JOB_OS_PY: config.jobOsPy, PYTHONIOENCODING: "utf-8" },
+      },
       (err, stdout, stderr) => {
         let parsed: unknown;
         try {
@@ -37,11 +42,14 @@ export function runJobOS<T>(args: string[]): Promise<T> {
         }
         if (err || parsed === undefined) {
           const why = (stderr || err?.message || "no output").trim().split("\n").slice(-3).join(" ");
-          return reject(new JobOSError(`Job OS failed: ${why}. Check JOB_OS_DIR and run \`python3 job_os.py due\`.`, "system"));
+          console.error("[job-os]", args[0], why);
+          return reject(new JobOSError("Job OS didn't respond. Check JOB_OS_PY and PYTHON on the server, then run `job_os.py due` there.", "system"));
         }
         resolve(parsed as T);
       },
     );
+    child.stdin?.on("error", () => {});
+    child.stdin?.end(input ?? "");
   });
 }
 

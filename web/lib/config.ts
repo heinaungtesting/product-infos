@@ -8,6 +8,8 @@ const defaultHermesHome = process.platform === "win32"
 /** Server-only configuration. Nothing here is sent to the browser. */
 export const config = {
   jobOsPy: process.env.JOB_OS_PY ?? path.resolve(process.cwd(), "..", "job_os.py"),
+  /** Adapts Job OS v4 to the dashboard's JSON views; passes through to a legacy CLI unchanged. */
+  bridgePy: path.resolve(process.cwd(), "scripts", "jobos_bridge.py"),
   python: process.env.PYTHON ?? "python3",
   jobOsDir: process.env.JOB_OS_DIR ?? path.resolve(process.cwd(), "..", "workspace"),
   cronDir: process.env.HERMES_CRON_DIR ?? path.join(process.env.HERMES_HOME ?? defaultHermesHome, "cron"),

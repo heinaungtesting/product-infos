@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { Countdown } from "@/components/countdown";
 import { CronRunList } from "@/components/cron-activity";
+import { TriageActions } from "@/components/feature-forms";
 import { Icon, type IconName } from "@/components/icons";
-import { Empty, ErrorPanel, JobCard, PageHeader, SectionHead, StatTile, statusLabel } from "@/components/ui";
+import { Empty, ErrorPanel, JobCard, Logo, PageHeader, SectionHead, StatTile, statusLabel } from "@/components/ui";
 import { listJobOsCronActivity } from "@/lib/cron-activity";
 import { config } from "@/lib/config";
 import { dueLabel, humanize, slot } from "@/lib/format";
@@ -47,16 +48,39 @@ export default async function TodayPage() {
   const drill = next ? `/hermes?job=${next.id}&prompt=${encodeURIComponent(`Drill me on the probe questions for ${next.id}, one at a time. Score each answer.`)}` : "/hermes";
   const nextUp = uniqueJobs([...data.upcoming, ...(pipeline ? IN_PROCESS.flatMap((s) => pipeline.groups[s]) : [])]).filter((j) => j.id !== next?.id).slice(0, 4);
   const missingClaims = readiness?.claims.filter((c) => c.reviewed && !c.has_evidence) ?? [];
+  const triage = data.waiting.filter((w) => w.kind === "triage" && w.job);
+  const otherWaiting = data.waiting.filter((w) => w.kind !== "triage");
+  // The next interview already has the hero card; the banner is for everything else that's urgent.
+  const bannerAlerts = (data.alerts ?? []).filter((a) => !(next && a.job === next.id && Date.parse(a.at) === Date.parse(next.due_at)));
 
   return (
     <div className="today">
       <PageHeader title="Today" />
 
       <div className="today-main">
+        {bannerAlerts.length > 0 && (
+          <section className="card deadline-banner" role="alert" aria-labelledby="alerts-title">
+            <span className="alert-icon"><Icon name="alert" size={24} /></span>
+            <div className="deadline-body">
+              <strong id="alerts-title">{bannerAlerts.some((a) => a.overdue) ? "Overdue" : "Due within 72 hours"} · {bannerAlerts.length}</strong>
+              <ul>
+                {bannerAlerts.slice(0, 4).map((a, i) => (
+                  <li key={`${a.job}-${i}`}>
+                    <Link href={`/jobs/${a.job}`}>
+                      <span className={a.overdue ? "red" : undefined}>{a.overdue ? "Overdue · " : ""}{dueLabel(a.at, now, a.overdue)}{a.time_unconfirmed ? " (time unconfirmed)" : ""}</span>
+                      <span className="deadline-what">{a.action} — {a.company}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </section>
+        )}
+
         <section className="stats" aria-label="Summary">
           <StatTile icon="today" value={data.upcoming.length} label="upcoming" sub="Interviews & deadlines" href="#next-up" />
           <StatTile icon="refresh" value={active} label="in process" sub="Applications moving forward" href="/pipeline" />
-          <StatTile icon="alert" tone="amber" value={gaps} label="evidence gaps" sub="Claims without code" href="/readiness" />
+          <StatTile icon="alert" tone="amber" value={gaps} label="gaps" sub="Claims without code" href="/readiness" />
         </section>
 
         <div className="hero-row">
@@ -64,9 +88,9 @@ export default async function TodayPage() {
             <section className="card hero" aria-label="Next interview">
               <span className="hero-icon"><Icon name="today" size={30} /></span>
               <div className="hero-body">
-                <h3>{next.company} interview{next.stage && <span className="muted"> · {next.stage}</span>}</h3>
+                <h3>{next.company}{next.stage && <span className="muted"> · {next.stage}</span>}</h3>
                 <p className="hero-when num">{slot(next.due_at)}</p>
-                <span className="chip-soft"><Icon name="video" size={18} />{next.next_action || "Interview"}</span>
+                <span className="chip-soft"><Icon name="video" size={18} />{next.next_action && next.next_action !== next.stage ? next.next_action : "Interview"}</span>
               </div>
               <div className="hero-side">
                 <Countdown at={next.due_at} />
@@ -134,15 +158,36 @@ export default async function TodayPage() {
           </section>
         )}
 
-        {data.waiting.length > 0 && (
+        {triage.length > 0 && (
+          <section aria-labelledby="triage">
+            <SectionHead id="triage" title={`Undecided · ${triage.length}`} href="/pipeline" />
+            <ul className="card list-card triage-list">
+              {triage.slice(0, 5).map((w) => (
+                <li key={w.job} className="triage-row">
+                  <Link className="triage-main" href={`/jobs/${w.job}`}>
+                    <Logo name={w.company ?? ""} size={36} />
+                    <span className="row-main">
+                      <strong className="clamp-1">{w.company}</strong>
+                      <span className="sub clamp-1">{w.title}</span>
+                    </span>
+                    {w.verdict === "WARN" && <span className="pill verdict-WARN">Check fit</span>}
+                  </Link>
+                  <TriageActions jobId={w.job!} company={w.company ?? ""} />
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {otherWaiting.length > 0 && (
           <section aria-labelledby="waiting">
             <SectionHead id="waiting" title="Waiting on you" />
             <ul className="card list-card">
-              {data.waiting.slice(0, 6).map((w, i) => (
+              {otherWaiting.slice(0, 6).map((w, i) => (
                 <li key={i}>
                   <Link className="list-row" href={w.job ? `/jobs/${w.job}` : "/readiness"}>
                     <span className={`mini-icon kind-${w.kind}`}><Icon name={WAIT_ICON[w.kind] ?? "flag"} size={18} /></span>
-                    <span className="row-main">{w.text}</span>
+                    <span className="row-main clamp-2">{w.kind === "evidence" && w.claim ? `Add a code link for ${humanize(w.claim)}` : w.text}</span>
                     <Icon name="arrow" size={18} className="muted" />
                   </Link>
                 </li>
@@ -178,19 +223,22 @@ export default async function TodayPage() {
           <section className="card evidence-path" aria-labelledby="ev-title">
             <SectionHead id="ev-title" title="Evidence path" href="/readiness" />
             <ol className="path">
-              {[...missingClaims, ...readiness.claims.filter((c) => c.reviewed && c.has_evidence)].slice(0, 4).map((c) => (
-                <li key={c.id} className={c.has_evidence ? "ok" : "pending"}>
+              {[...missingClaims, ...readiness.claims.filter((c) => c.reviewed && c.has_evidence)].slice(0, 4).map((c) => {
+                const ok = c.has_evidence && c.verified !== false;
+                return (
+                <li key={c.id} className={ok ? "ok" : "pending"}>
                   <span className="path-icon"><Icon name={c.has_evidence ? "code" : "link"} size={20} /></span>
                   <div>
                     <span className="path-kind">{c.skills.slice(0, 2).join(" · ") || "Claim"}</span>
                     <strong>{humanize(c.id)}</strong>
-                    <p>{c.has_evidence ? c.text : "Code link pending — add a GitHub permalink and a short README note."}</p>
+                    <p>{ok ? c.text : c.has_evidence ? "Link added — review it on the PC to mark verified." : "Code link pending — add a GitHub permalink and a short README note."}</p>
                   </div>
-                  <span className="path-state" aria-label={c.has_evidence ? "Linked" : "Missing"}>
-                    <Icon name={c.has_evidence ? "check" : "alert"} size={14} strokeWidth={3} />
+                  <span className="path-state" aria-label={ok ? "Verified" : c.has_evidence ? "Needs review" : "Missing"}>
+                    <Icon name={ok ? "check" : "alert"} size={14} strokeWidth={3} />
                   </span>
                 </li>
-              ))}
+                );
+              })}
             </ol>
           </section>
         )}

@@ -14,14 +14,46 @@ export interface JobSummary {
   override: boolean;
 }
 
+export interface DeadlineAlert {
+  job: string;
+  company: string;
+  status: Status;
+  action: string;
+  at: string;
+  time_unconfirmed: boolean;
+  overdue: boolean;
+  text: string;
+}
+
+export interface WaitingItem {
+  kind: string;
+  job?: string;
+  claim?: string;
+  company?: string;
+  title?: string;
+  verdict?: string;
+  text: string;
+}
+
 export interface Today {
   now: string;
   next_interview: JobSummary | null;
   upcoming: JobSummary[];
-  waiting: { kind: string; job?: string; claim?: string; text: string }[];
+  waiting: WaitingItem[];
   counts: Record<Status, number>;
+  alerts?: DeadlineAlert[];
   evidence: { reviewed: number; linked: number };
   profile_loaded: boolean;
+}
+
+export interface Debrief {
+  at: string;
+  stage: string;
+  date: string;
+  questions: { q: string; claim: string; stuck: boolean; better_answer: string }[];
+  stuck: number;
+  went_well: string;
+  next_time: string;
 }
 
 export interface Pipeline {
@@ -43,6 +75,8 @@ export interface JobDetail {
   match: MatchRow[];
   versions: { version: number; created_at: string; claims: number; unmatched: string[]; sent: boolean }[];
   events: { at: string; status: string; note: string }[];
+  debriefs?: Debrief[];
+  claims?: { id: string; label: string }[];
   allowed_next: Status[];
 }
 
@@ -57,7 +91,7 @@ export interface Prep {
 }
 
 export interface Readiness {
-  claims: { id: string; text: string; reviewed: boolean; has_evidence: boolean; evidence: { url: string; note?: string }[]; skills: string[] }[];
-  evidence: { reviewed: number; linked: number; missing_evidence: string[] };
+  claims: { id: string; text: string; reviewed: boolean; has_evidence: boolean; verified?: boolean; evidence: { url: string; note?: string }[]; skills: string[] }[];
+  evidence: { reviewed: number; linked: number; verified?: number; missing_evidence: string[] };
   gaps: { requirement: string; jobs: number }[];
 }

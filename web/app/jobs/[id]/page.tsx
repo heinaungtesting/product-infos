@@ -2,12 +2,15 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Icon } from "@/components/icons";
 import { RecordForm, ScheduleForm } from "@/components/job-forms";
+import { DebriefForm, TriageActions } from "@/components/feature-forms";
 import { Badge, ErrorPanel, Logo, PageHeader, Verdict } from "@/components/ui";
 import { dueLabel, jst } from "@/lib/format";
 import { JOB_ID_RE, JobOSError, runJobOS } from "@/lib/jobos";
 import type { JobDetail } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
+
+const DEBRIEF_STATUSES = new Set(["applied", "interview", "offer", "rejected"]);
 
 function primaryAction(d: JobDetail) {
   const s = d.job.status;
@@ -136,6 +139,37 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
         </div>
 
         <div className="side">
+          {j.status === "discovered" && !j.next_action && (
+            <section className="card panel">
+              <h2><Icon name="target" size={20} />Keep or skip?</h2>
+              <p className="sub">Keep schedules "Draft application" in 3 days. Skip closes it as withdrawn with your reason.</p>
+              <TriageActions jobId={j.id} company={j.company} />
+            </section>
+          )}
+          {DEBRIEF_STATUSES.has(j.status) && (
+            <section className="card panel" id="debrief">
+              <h2><Icon name="sparkle" size={20} />Debrief</h2>
+              <p className="sub">Right after the interview: what they asked and where you got stuck. Questions go into your drill bank.</p>
+              <DebriefForm jobId={j.id} stage={j.stage} claims={d.claims ?? []} />
+            </section>
+          )}
+          {(d.debriefs?.length ?? 0) > 0 && (
+            <section className="card panel">
+              <h2><Icon name="history" size={20} />Past debriefs</h2>
+              <ul className="rows" style={{ margin: "0 -20px -8px" }}>
+                {d.debriefs!.map((b, i) => (
+                  <li key={i} className="row debrief-row" style={{ padding: "12px 20px" }}>
+                    <span className="row-main">
+                      <strong>{b.stage || "Interview"}{b.date && <span className="sub" style={{ display: "inline" }}> · {b.date}</span>}</strong>
+                      <span className="sub">{b.questions.length} question{b.questions.length === 1 ? "" : "s"}{b.stuck ? ` · ${b.stuck} stuck` : ""}</span>
+                      {b.questions.filter((q) => q.stuck).slice(0, 3).map((q, k) => <span key={k} className="sub red clamp-2">⚠ {q.q}</span>)}
+                      {b.next_time && <span className="sub">Next time: {b.next_time}</span>}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
           <section className="card panel">
             <h2><Icon name="flag" size={20} />Set next step</h2>
             <ScheduleForm jobId={j.id} action={j.next_action} due={j.due_at} kind={j.next_kind} />

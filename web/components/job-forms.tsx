@@ -20,6 +20,7 @@ export function RecordForm({ jobId, allowed }: { jobId: string; allowed: string[
   const [status, setStatus] = useState(allowed[0] ?? "");
   const [note, setNote] = useState("");
   const [stage, setStage] = useState("");
+  const [external, setExternal] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   if (!allowed.length) return <p className="sub">This job has no further status changes.</p>;
@@ -29,7 +30,7 @@ export function RecordForm({ jobId, allowed }: { jobId: string; allowed: string[
       onSubmit={async (e) => {
         e.preventDefault();
         setBusy(true);
-        const err = await post(`/api/jobs/${jobId}/record`, { status, note, stage });
+        const err = await post(`/api/jobs/${jobId}/record`, { status, note, stage, external: status === "applied" && external });
         setBusy(false);
         setError(err);
         if (!err) {
@@ -48,6 +49,12 @@ export function RecordForm({ jobId, allowed }: { jobId: string; allowed: string[
         <label>
           Stage
           <input value={stage} onChange={(e) => setStage(e.target.value)} placeholder="1次" maxLength={40} />
+        </label>
+      )}
+      {status === "applied" && (
+        <label className="check">
+          <input type="checkbox" checked={external} onChange={(e) => setExternal(e.target.checked)} />
+          Applied outside Job OS (no résumé version to pin)
         </label>
       )}
       <label>

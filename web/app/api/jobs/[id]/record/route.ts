@@ -14,6 +14,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/jobs/[id]/recor
     if (note.length > 2000 || stage.length > 40) throw new JobOSError("Note (2000) or stage (40) is too long.", "rule");
     const args = ["record", id, "--status", status, "--note", note];
     if (stage) args.push("--stage", stage);
+    if (status === "applied" && body.external === true) args.push("--external-submission");
     return json(await runJobOS(args));
   } catch (e) {
     return errorResponse(e);
