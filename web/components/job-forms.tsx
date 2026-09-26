@@ -41,7 +41,7 @@ export function RecordForm({ jobId, allowed }: { jobId: string; allowed: string[
       <label>
         New status
         <select value={status} onChange={(e) => setStatus(e.target.value)}>
-          {allowed.map((s) => <option key={s} value={s}>{s}</option>)}
+          {allowed.map((s) => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
         </select>
       </label>
       {status === "interview" && (
@@ -55,16 +55,16 @@ export function RecordForm({ jobId, allowed }: { jobId: string; allowed: string[
         <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} maxLength={2000} />
       </label>
       {error && <p className="form-error" role="alert">{error}</p>}
-      <button className="btn" disabled={busy}>{busy ? "Saving…" : "Record result"}</button>
+      <button className="btn primary" disabled={busy}>{busy ? "Saving…" : "Record result"}</button>
     </form>
   );
 }
 
-export function ScheduleForm({ jobId, action, due }: { jobId: string; action: string; due: string }) {
+export function ScheduleForm({ jobId, action, due, kind: initialKind = "task" }: { jobId: string; action: string; due: string; kind?: string }) {
   const router = useRouter();
   const [next, setNext] = useState(action);
   const [when, setWhen] = useState(due ? due.slice(0, 16) : "");
-  const [kind, setKind] = useState("task");
+  const [kind, setKind] = useState(initialKind);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   return (
@@ -87,15 +87,12 @@ export function ScheduleForm({ jobId, action, due }: { jobId: string; action: st
         Due (JST)
         <input type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} required />
       </label>
-      <label>
-        Kind
-        <select value={kind} onChange={(e) => setKind(e.target.value)}>
-          <option value="task">Task</option>
-          <option value="interview">Interview</option>
-        </select>
-      </label>
+      <div className="seg" role="group" aria-label="Kind">
+        <button type="button" aria-pressed={kind === "task"} onClick={() => setKind("task")}>Task</button>
+        <button type="button" aria-pressed={kind === "interview"} onClick={() => setKind("interview")}>Interview</button>
+      </div>
       {error && <p className="form-error" role="alert">{error}</p>}
-      <button className="btn" disabled={busy}>{busy ? "Saving…" : "Set next step"}</button>
+      <button className="btn primary" disabled={busy}>{busy ? "Saving…" : "Set next step"}</button>
     </form>
   );
 }

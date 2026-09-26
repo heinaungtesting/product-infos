@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { Icon } from "./icons";
 
 /**
  * Registers the shell-only service worker and hides the whole app when offline,
@@ -22,8 +23,10 @@ export function OfflineGuard() {
   return (
     <div className="offline" role="alert">
       <div>
-        <h1>Offline</h1>
+        <span className="stat-icon tone-amber" style={{ margin: "0 auto", width: 72, height: 72 }}><Icon name="offline" size={34} /></span>
+        <h1>You're offline</h1>
         <p>Live data and actions are unavailable. Nothing is stored on this phone, so there is nothing to show until you reconnect.</p>
+        <button className="btn primary" onClick={() => location.reload()}>Try again</button>
       </div>
     </div>
   );

@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { ErrorPanel } from "@/components/ui";
+import { Icon } from "@/components/icons";
+import { Empty, ErrorPanel, PageHeader } from "@/components/ui";
+import { humanize } from "@/lib/format";
 import { runJobOS } from "@/lib/jobos";
 import type { Readiness } from "@/lib/types";
 
@@ -10,46 +12,77 @@ export default async function ReadinessPage() {
   try {
     r = await runJobOS<Readiness>(["api", "readiness"]);
   } catch (e) {
-    return (<><h1>Readiness</h1><ErrorPanel error={e} /></>);
+    return (<><PageHeader title="Evidence" /><ErrorPanel error={e} /></>);
   }
   const pct = r.evidence.reviewed ? Math.round((r.evidence.linked / r.evidence.reviewed) * 100) : 0;
+  const missing = r.evidence.reviewed - r.evidence.linked;
+  const maxGap = Math.max(1, ...r.gaps.map((g) => g.jobs));
+  const order = (c: Readiness["claims"][number]) => (c.reviewed && !c.has_evidence ? 0 : !c.reviewed ? 1 : 2);
+  const claims = [...r.claims].sort((a, b) => order(a) - order(b));
   return (
     <>
-      <h1>Readiness</h1>
-      <section className="panel">
-        <div className="board-label">Code evidence</div>
-        <div className="board-company num">{r.evidence.linked} / {r.evidence.reviewed}</div>
-        <div className="cov" role="img" aria-label={`${pct}% of reviewed claims link to code`}>
-          <span className="cov-direct" style={{ width: `${pct}%` }} />
-          <span className="cov-none" style={{ width: `${100 - pct}%` }} />
+      <PageHeader title="Evidence" />
+      <div className="readiness-grid">
+        <div style={{ display: "grid", gap: 14 }}>
+          <section className="card score">
+            <div className="ring" style={{ ["--p" as string]: pct }} role="img" aria-label={`${pct}% of reviewed claims link to code`}>
+              <span className="num">{pct}%</span>
+            </div>
+            <div>
+              <h2>Code evidence</h2>
+              <p className="sub num">{r.evidence.linked} of {r.evidence.reviewed} reviewed claims link to code.</p>
+              {missing > 0 ? <p className="red" style={{ fontWeight: 700 }}>{missing} gap{missing > 1 ? "s" : ""} to close before interviews.</p> : <p style={{ color: "var(--green)", fontWeight: 700 }}>Every claim is backed.</p>}
+            </div>
+          </section>
+
+          <div className="section-head"><h2>Claims</h2></div>
+          <div className="card-list">
+            {claims.map((c) => {
+              const state = !c.reviewed ? "unreviewed" : c.has_evidence ? "linked" : "missing";
+              return (
+                <section key={c.id} className={`card claim-card${state === "missing" ? " probe missing" : ""}`} style={{ padding: "16px 18px" }}>
+                  <div className="claim-top">
+                    <strong>{humanize(c.id)}</strong>
+                    <span className={`match-tag ${state === "linked" ? "match-direct" : state === "missing" ? "match-none" : ""}`} style={state === "unreviewed" ? { background: "#eef1f6", color: "#5f6b80" } : undefined}>
+                      {state === "linked" ? "LINKED" : state === "missing" ? "NO CODE" : "UNREVIEWED"}
+                    </span>
+                  </div>
+                  <p>{c.text}</p>
+                  <div className="tags">{c.skills.map((s) => <span key={s} className="tag">{s}</span>)}</div>
+                  {state === "missing" && (
+                    <Link className="btn outline-amber" href={`/hermes?prompt=${encodeURIComponent(`Find code evidence for claim ${c.id}.`)}`}>
+                      <Icon name="sparkle" size={18} />Find evidence with Hermes
+                    </Link>
+                  )}
+                  {c.evidence.length > 0 && (
+                    <div className="evidence-links">
+                      {c.evidence.map((e) => <a key={e.url} href={e.url} target="_blank" rel="noreferrer noopener"><Icon name="code" size={16} />{e.note || "Code"}</a>)}
+                    </div>
+                  )}
+                </section>
+              );
+            })}
+          </div>
         </div>
-      </section>
-      <h2>Claims</h2>
-      <ul className="rows">
-        {r.claims.map((c) => (
-          <li key={c.id} className="row">
-            <span className="row-main">
-              <span className="row-title">{c.id}</span>
-              <span className="sub" style={{ display: "block" }}>{c.text}</span>
-            </span>
-            {!c.reviewed ? (
-              <span className="tag muted">UNREVIEWED</span>
-            ) : c.has_evidence ? (
-              <span className="tag tag-direct">LINKED</span>
-            ) : (
-              <Link className="tag tag-none" href={`/hermes?prompt=${encodeURIComponent(`Find code evidence for claim ${c.id}.`)}`}>NO CODE</Link>
-            )}
-          </li>
-        ))}
-      </ul>
-      <h2>Skill gaps in active jobs</h2>
-      {r.gaps.length ? (
-        <ul className="rows">
-          {r.gaps.map((g) => <li key={g.requirement} className="row"><span className="row-main">{g.requirement}</span><span className="num muted">{g.jobs} job{g.jobs > 1 ? "s" : ""}</span></li>)}
-        </ul>
-      ) : (
-        <p className="sub">No unmatched requirements.</p>
-      )}
+
+        <aside>
+          <div className="section-head"><h2>Skill gaps</h2></div>
+          {r.gaps.length ? (
+            <section className="card" style={{ padding: "6px 0" }}>
+              <p className="sub" style={{ padding: "10px 18px 0" }}>Requirements in active jobs with no matching claim.</p>
+              {r.gaps.map((g) => (
+                <div key={g.requirement} className="bar-row">
+                  <strong>{g.requirement}</strong>
+                  <span className="sub num">{g.jobs} job{g.jobs > 1 ? "s" : ""}</span>
+                  <div className="bar"><span style={{ width: `${(g.jobs / maxGap) * 100}%` }} /></div>
+                </div>
+              ))}
+            </section>
+          ) : (
+            <Empty>No unmatched requirements.</Empty>
+          )}
+        </aside>
+      </div>
     </>
   );
 }

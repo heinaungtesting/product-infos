@@ -4,7 +4,7 @@
  * responses, RSC payloads and chat never enter the cache: nothing personal is
  * stored on the phone, and nothing stale is ever shown as current.
  */
-const CACHE = "job-os-shell-v1";
+const CACHE = "job-os-shell-v2";
 const SHELL = ["/offline.html", "/icons/icon.svg", "/manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {

@@ -1,4 +1,5 @@
 import { Chat } from "@/components/chat";
+import { PageHeader } from "@/components/ui";
 import { JOB_ID_RE } from "@/lib/jobos";
 
 export const dynamic = "force-dynamic";
@@ -9,7 +10,7 @@ export default async function HermesPage({ searchParams }: { searchParams: Promi
   const prompt = typeof sp.prompt === "string" ? sp.prompt.slice(0, 4000) : undefined;
   return (
     <>
-      <h1>Hermes</h1>
+      <PageHeader title="Hermes" date={false} />
       <Chat key={job ?? "general"} conversation={job ? `job-os:${job}` : "job-os"} job={job} initialPrompt={prompt} />
     </>
   );
