@@ -2,7 +2,7 @@
 
 A personal job-search system: a Python/SQLite core (`job_os.py`), operated by the Hermes agent, with a phone-first Next.js dashboard reached over **Tailscale Serve**.
 
-> **Status: implemented, not deployed.** Everything here passes unit tests and a run against a *fake* Hermes. Nothing has run on the real machine, real Tailscale or real Hermes yet. The product-defining test is the chain **iPhone on cellular → Serve → dashboard → Hermes → `job_os.py`** ([smoke test](#live-smoke-test)). Don't build more features until it passes.
+> **Status: local real-Hermes chat tested, not deployed.** On a Windows host, the dashboard authenticated to the real Hermes API, streamed a reply and terminal tool events, and kept context across turns using `previous_response_id`. The Python tests currently fail on Windows during SQLite temporary-file cleanup. Real Tailscale, iPhone cellular access, and a `job_os.py` tool call from the dashboard remain untested. The product-defining test is **iPhone on cellular → Serve → dashboard → Hermes → `job_os.py`** ([smoke test](#live-smoke-test)).
 
 This repo is **public**. It contains code and synthetic examples only. Your real `profile.json`, companies, database, drafts and chat history live in `JOB_OS_DIR`, outside git.
 
@@ -38,6 +38,17 @@ JOB_OS_DIR=$JOB_OS_DIR JOB_OS_DEV_LOGIN=you@example.com ALLOWED_TAILSCALE_LOGINS
 ```
 
 `JOB_OS_DEV_LOGIN` works only under `next dev`. It's ignored in production.
+
+### Local real-Hermes chat (no Tailscale)
+
+On the same machine as Hermes, enable its authenticated API server on `127.0.0.1:8642` and keep `API_SERVER_KEY` in the active Hermes home's `.env` (never in git). Install the web dependencies with `cd web && npm ci`, then from the repository root run:
+
+```text
+python scripts/run-local-hermes.py --check
+python scripts/run-local-hermes.py --data-dir PATH_TO_YOUR_JOB_OS_DATA --login YOUR_TAILSCALE_LOGIN --port 50543
+```
+
+The launcher verifies `/v1/models` with the key, then starts Next.js on loopback with the key only in the server process environment. Open the printed localhost URL; this is **development mode with a local login bypass**, not a phone deployment. Use a free port if 50543 is occupied. It sets `HERMES_CONTINUATION=previous_response_id`, which was verified across two turns. It does not initialise data, install the Hermes skill, or configure Tailscale. Use the production deployment steps below for phone access.
 
 ## CLI
 
@@ -104,7 +115,7 @@ sudo -u <hermes-user> scripts/check-local-forgery.sh unix:/run/job-os/web.sock y
 
 ## Hermes chat contract
 
-**Not validated yet.** `web/lib/sse.ts` assumes the `/v1/responses` SSE shape. The first live session must record a real stream (see `web/test/fixtures/README.md`) and make it the test fixture.
+**Partially validated on localhost against real Hermes.** Authenticated `/v1/responses` streaming, terminal tool events, and two-turn continuation using `previous_response_id` worked. The full stream fixture and phone/reconnection cases remain untested (see `web/test/fixtures/README.md`).
 
 - Every message carries a `clientMsgId`. A repeat returns `409 duplicate` and never makes a second Hermes request.
 - Each conversation allows one turn at a time. A second send returns `409 busy`.
