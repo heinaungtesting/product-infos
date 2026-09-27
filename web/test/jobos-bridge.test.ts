@@ -144,13 +144,17 @@ print(json.dumps([b.scrub(V,x) for x in sys.argv[3:]]))`;
 
   // ---- Feature 3: keep / skip triage
   it("triage keep sets a next action and removes the job from the undecided list", async () => {
-    const r = await run(["triage", "kakakucom-2027-engineer", "--decision", "keep"]);
+    // Live data changes daily; pick whichever job is still undecided in this copy.
+    const before = (await run(["api", "today"])).out;
+    const target = before.waiting.find((w: any) => w.kind === "triage")?.job;
+    assert.ok(target, "fixture copy needs at least one undecided job");
+    const r = await run(["triage", target, "--decision", "keep"]);
     assert.deepEqual(r.out, { ok: true });
-    const job = (await run(["api", "job", "kakakucom-2027-engineer"])).out.job;
+    const job = (await run(["api", "job", target])).out.job;
     assert.equal(job.status, "discovered");
     assert.ok(job.next_action.length > 0 && job.due_at.endsWith("+09:00"));
     const today = (await run(["api", "today"])).out;
-    assert.ok(!today.waiting.some((w: any) => w.kind === "triage" && w.job === "kakakucom-2027-engineer"));
+    assert.ok(!today.waiting.some((w: any) => w.kind === "triage" && w.job === target));
   });
 
   it("triage skip records withdrawn with the reason; needs a reason; only for discovered", async () => {
