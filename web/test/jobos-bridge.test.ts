@@ -142,6 +142,52 @@ print(json.dumps([b.scrub(V,x) for x in sys.argv[3:]]))`;
     assert.match(hit.text, /ES締切/);
   });
 
+  // ---- Résumé CRUD (idempotent)
+  it("resume save creates once, then refuses to duplicate identical content", async () => {
+    const pipe = (await run(["api", "pipeline"])).out;
+    const id = pipe.groups.discovered.find((j: any) => j.verdict !== "BLOCK")?.id;
+    assert.ok(id, "needs a draftable job in the copy");
+    const before = (await run(["resume", "list", id])).out;
+    assert.equal(before.can_draft, true);
+    const first = await run(["resume", "save", id, "--language", "en"]);
+    assert.equal(first.out.action, "created", JSON.stringify(first.out));
+    const again = await run(["resume", "save", id, "--language", "en"]);
+    assert.equal(again.out.action, "unchanged");
+    assert.equal(again.out.version, first.out.version);
+    const list = (await run(["resume", "list", id])).out;
+    assert.equal(list.versions.length, before.versions.length + 1);
+    assert.ok(!JSON.stringify(list).match(/[A-Za-z]:[\\/]|\/Users\//), "no server paths");
+    const dbFile = path.join(root, "data", "job_os.sqlite3");
+    const mtime = statSync(dbFile).mtimeMs;
+    await run(["resume", "list", id]);
+    assert.equal(statSync(dbFile).mtimeMs, mtime, "listing must not write the database");
+  });
+
+  it("resume save with a 志望動機 via stdin makes a new version once; delete archives; sent is protected", async () => {
+    const pipe = (await run(["api", "pipeline"])).out;
+    const id = pipe.groups.discovered.find((j: any) => j.verdict !== "BLOCK")?.id;
+    const mot = "貴社の開発姿勢に惹かれました。";
+    const a = await run(["resume", "save", id, "--language", "ja", "--motivation", "-"], mot);
+    assert.equal(a.out.action, "created", JSON.stringify(a.out));
+    const b = await run(["resume", "save", id, "--language", "ja", "--motivation", "-"], mot);
+    assert.equal(b.out.action, "unchanged");
+    const row = (await run(["resume", "list", id])).out.versions.find((v: any) => v.version === a.out.version);
+    assert.equal(row.motivation, mot);
+    const del = await run(["resume", "delete", id, "--version", String(a.out.version)]);
+    assert.equal(del.out.action, "deleted");
+    const del2 = await run(["resume", "delete", id, "--version", String(a.out.version)]);
+    assert.equal(del2.out.action, "unchanged");
+    const tooLong = await run(["resume", "save", id, "--language", "ja", "--motivation", "-"], "あ".repeat(601));
+    assert.match(tooLong.out.error, /600/);
+    const sent = pipe.groups.applied.concat(pipe.groups.interview).find((j: any) => j.id);
+    if (sent) {
+      const d = (await run(["resume", "list", sent.id])).out;
+      assert.equal(d.can_draft, false);
+      const refuse = await run(["resume", "save", sent.id, "--language", "en"]);
+      assert.match(refuse.out.error, /Already/);
+    }
+  });
+
   // ---- Feature 3: keep / skip triage
   it("triage keep sets a next action and removes the job from the undecided list", async () => {
     // Live data changes daily; pick whichever job is still undecided in this copy.

@@ -95,3 +95,19 @@ export interface Readiness {
   evidence: { reviewed: number; linked: number; verified?: number; missing_evidence: string[] };
   gaps: { requirement: string; jobs: number }[];
 }
+
+export type ResumeVersion = {
+  version: number;
+  language: "ja" | "en";
+  format: string;
+  created_at: string;
+  ready: boolean;
+  placeholders: string[];
+  claims: number;
+  upload_filename: string | null;
+  sent: boolean;
+  motivation: string;
+  has_pdf: boolean;
+};
+export type ResumeList = { job_id: string; status: string; sent_version: number | null; can_draft: boolean; versions: ResumeVersion[] };
+export type ResumeSaveResult = { action: "created" | "unchanged" | "deleted"; version: number; ready?: boolean; message?: string };

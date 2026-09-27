@@ -3,10 +3,11 @@ import { notFound } from "next/navigation";
 import { Icon } from "@/components/icons";
 import { RecordForm, ScheduleForm } from "@/components/job-forms";
 import { DebriefForm, TriageActions } from "@/components/feature-forms";
+import { ResumeManager } from "@/components/resume-manager";
 import { Badge, ErrorPanel, Logo, PageHeader, Verdict } from "@/components/ui";
 import { dueLabel, jst } from "@/lib/format";
 import { JOB_ID_RE, JobOSError, runJobOS } from "@/lib/jobos";
-import type { JobDetail } from "@/lib/types";
+import type { JobDetail, ResumeList } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +31,7 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
     if (e instanceof JobOSError && e.kind === "rule" && e.message.startsWith("No job")) notFound();
     return (<><PageHeader title="Job" date={false} back={{ href: "/pipeline", label: "Pipeline" }} /><ErrorPanel error={e} /></>);
   }
+  const resumes = await runJobOS<ResumeList>(["resume", "list", id]).catch(() => null);
   const j = d.job;
   const cov = { direct: 0, inferred: 0, none: 0 };
   d.match.forEach((m) => cov[m.match]++);
@@ -105,24 +107,10 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
             </section>
           )}
 
-          {d.versions.length > 0 && (
-            <section className="card panel">
-              <h2>Résumé versions</h2>
-              <ul className="rows" style={{ margin: "0 -20px -8px" }}>
-                {d.versions.map((v) => (
-                  <li key={v.version} className="row" style={{ padding: "12px 20px" }}>
-                    <span className="mini-icon"><Icon name="file" size={18} /></span>
-                    <span className="row-main">
-                      <strong>v{v.version}</strong> · {v.claims} claims
-                      {v.unmatched.length > 0 && <span className="red"> · {v.unmatched.length} unmatched</span>}
-                      <span className="sub">{jst(v.created_at)}</span>
-                    </span>
-                    {v.sent && <span className="match-tag match-direct">SENT</span>}
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
+          <section className="card panel" id="resumes">
+            <h2><Icon name="file" size={20} />Résumés</h2>
+            {resumes ? <ResumeManager jobId={j.id} data={resumes} /> : <p className="sub">Résumés couldn't be loaded.</p>}
+          </section>
 
           <section className="card panel">
             <h2><Icon name="history" size={20} />History</h2>

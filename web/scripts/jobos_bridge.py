@@ -420,6 +420,30 @@ def do_debrief(v4, a):
     return {"ok": True, "questions": n}
 
 
+def do_resume(v4, a):
+    """Résumé CRUD through v4's own idempotent functions. Never exposes server paths."""
+    if not hasattr(v4, "resume_save"):
+        raise Rule("This Job OS version has no résumé management. Update job_os.py.")
+    db = ro_db(v4) if a.op == "list" else v4.connect()  # reads never go through connect()'s schema writes
+    try:
+        try:
+            v4.get_job(db, a.id)
+        except ValueError:
+            raise Rule(f"No job '{a.id}'.")
+        if a.op == "list":
+            return v4.resume_list(db, a.id)
+        if a.op == "save":
+            raw = sys.stdin.buffer.read(20_001).decode("utf-8", "replace") if a.motivation == "-" else ""
+            if len(raw) > 20_000:
+                raise Rule("志望動機 is too long.")
+            return v4.resume_save(db, a.id, a.language, motivation=raw or None)
+        if not a.version or a.version < 1:
+            raise Rule("Pick a version.")
+        return v4.resume_delete(db, a.id, a.version)
+    finally:
+        db.close()
+
+
 def main(argv=None):
     for s in (sys.stdout, sys.stderr):
         try:
@@ -454,6 +478,11 @@ def main(argv=None):
     s.add_argument("--confirm", action="store_true")
     s = sub.add_parser("debrief")
     s.add_argument("id"); s.add_argument("--data", required=True)
+    s = sub.add_parser("resume")
+    s.add_argument("op", choices=["list", "save", "delete"]); s.add_argument("id")
+    s.add_argument("--language", choices=["ja", "en"], default="ja")
+    s.add_argument("--motivation", default="", help="'-' reads the 志望動機 from stdin")
+    s.add_argument("--version", type=int, default=0)
     sub.add_parser("verify")
     a = p.parse_args(argv)
 
@@ -471,6 +500,8 @@ def main(argv=None):
             result = do_evidence(v4, a)
         elif a.cmd == "debrief":
             result = do_debrief(v4, a)
+        elif a.cmd == "resume":
+            result = do_resume(v4, a)
         else:
             if a.view in ("job", "prep") and not a.id:
                 raise Rule(f"`api {a.view}` needs a job id.")
